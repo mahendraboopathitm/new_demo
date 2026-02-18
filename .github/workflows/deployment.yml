@@ -1,0 +1,76 @@
+name: Databricks Asset Bundle Deploy - Git to Prod
+
+on:
+  workflow_dispatch:
+
+  push:
+    branches:
+      - main
+    paths:
+      - 'demo_01/dev/files/**'
+
+jobs:
+  deploy-databricks-bundles:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Databricks CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+
+      # 🔍 Verify DEV connection
+      - name: Verify DEV Databricks connection
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_DEV_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_DEV_TOKEN }}
+        run: |
+          echo "Testing DEV workspace..."
+          databricks workspace list /Shared
+
+      # ✅ Validate bundle in DEV
+      - name: Validate bundle (DEV)
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_DEV_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_DEV_TOKEN }}
+        run: |
+          cd dev_cicd
+          databricks bundle validate --target dev
+
+      # 🚀 Deploy bundle to PROD
+      - name: Deploy bundle to PROD
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_PROD_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PROD_TOKEN }}
+        run: |
+          cd dev_cicd
+          databricks bundle deploy --target prod
+
+      - name: Send success notification
+        if: success()
+        run: |
+          if [ -n "${{ secrets.SLACK_WEBHOOK }}" ]; then
+            curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+              -H 'Content-Type: application/json' \
+              -d "{
+                \"text\": \"✅ Databricks Asset Bundle deployed to PROD successfully\"
+              }"
+          fi
+
+      - name: Send failure notification
+        if: failure()
+        run: |
+          if [ -n "${{ secrets.SLACK_WEBHOOK }}" ]; then
+            curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+              -H 'Content-Type: application/json' \
+              -d "{
+                \"text\": \"❌ Databricks Asset Bundle PROD deployment FAILED\"
+              }"
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f ~/.databrickscfg || true
