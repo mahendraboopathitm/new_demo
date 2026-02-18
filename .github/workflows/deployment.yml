@@ -36,7 +36,7 @@ jobs:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_DEV_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_DEV_TOKEN }}
         run: |
-          cd dev_cicd
+          cd demo_01/dev/files/
           databricks bundle validate --target dev
 
       # 🚀 Deploy bundle to PROD
@@ -45,7 +45,7 @@ jobs:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_PROD_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PROD_TOKEN }}
         run: |
-          cd dev_cicd
+          cd demo_01/dev/files/
           databricks bundle deploy --target prod
 
       - name: Send success notification
